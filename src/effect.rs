@@ -5,37 +5,9 @@ use crate::{
     moves::MoveStats,
 };
 
-/// A long-term effect that is applied on a fighting dragon
-/// in each round, or, each event. The event is given in the
-/// first parameter, and the effect has the power to modify
-/// allowed stats, or outright cancel the action.
-///
-/// The second parameter is the amount of rounds the effect
-/// has been attached to the dragon.
-///
-/// The effect returns `None` when it should be detached from
-/// the dragon, and returns `Some(bool)` otherwise, indicating
-/// whether the action should be allowed to happen.
-///pub type LongTermEffect = dyn Fn(&BattleStatus, u16) -> Option<bool>;
-
-/// `BattleStatus` indicates an event that has happened in the
-/// battle, and now `LongTermEffect`s have the opportunity to
-/// modify the stats via the mutable references given in the
-/// enum.
-pub enum BattleStatus<'a> {
-    /// The turn is starting, and the system is calculating the
-    /// momentary stats of the dragon, taking stages into account.
-    StatCalculation(&'a mut StatStages),
-    /// The dragon is using a move to attack the opponent,
-    /// or the opponent is attacking the dragon.
-    /// The first parameter is the stat stages of the user,
-    /// the second is the move's stats, the third is the stat
-    /// stages of the opponent.
-    Offending(&'a mut StatStages, &'a mut MoveStats, &'a mut StatStages),
-    Defending(&'a mut StatStages, &'a mut MoveStats, &'a mut StatStages),
-    Switching,
-}
-
+/// If a function returns None, the action is stopped. In
+/// other cases, the returned data is used in the action,
+/// possibly passing through other effects before.
 pub trait LongTermEffectTrait {
     /// Return a lowercase string corresponding to the type
     /// of the longterm effect.
@@ -43,45 +15,43 @@ pub trait LongTermEffectTrait {
 
     /// Called when the effect is first added to the dragon.
     /// May mutate state.
-    fn apply(&self, _dragon: &mut BattleDragon) -> Option<()> {
-        Some(())
+    fn apply(&self, dragon: BattleDragon) -> (bool, BattleDragon) {
+        (true, dragon)
     }
 
-    /// Called each turn, may add effects to the dragon via the effect
-    /// queue passed in the second parameter
-    fn turn(
-        &mut self,
-        _turn: u16,
-        _effect_queue: &mut Vec<Box<dyn LongTermEffectTrait>>,
-    ) -> Option<()> {
-        Some(())
+    /// Called each turn, may add effects to the dragon via returning
+    /// effects in a vector. Returns false if it should be detached.
+    /// Even if the effect is detaching, the other ones in the vector
+    /// will be applied.
+    fn turn(&mut self, _turn: u16) -> (bool, Option<Vec<Box<dyn LongTermEffectTrait>>>) {
+        (true, None)
     }
 
     /// Called when stats are being calculated.
-    fn stat_calculation(&self, _stages: &mut StatStages) -> Option<bool> {
-        Some(true)
+    fn stat_calculation(&self, stages: StatStages) -> StatStages {
+        stages
     }
-    /// Called when the dragon (user) is attacking an opponent.
+    /// Called when the dragon (user) is attacking an opponent. May return
     fn offending(
         &self,
-        _stages: &mut StatStages,
-        _move_stats: &mut MoveStats,
-        _opponent_stages: &mut StatStages,
-    ) -> Option<bool> {
-        Some(true)
+        stages: StatStages,
+        move_stats: MoveStats,
+        opponent_stages: StatStages,
+    ) -> Option<(StatStages, MoveStats, StatStages)> {
+        Some((stages, move_stats, opponent_stages))
     }
     /// Called when the opponent is attacking the dragon.
     fn defending(
         &self,
-        _stages: &mut StatStages,
-        _move_stats: &mut MoveStats,
-        _opponent_stages: &mut StatStages,
-    ) -> Option<bool> {
-        Some(true)
+        stages: StatStages,
+        move_stats: MoveStats,
+        opponent_stages: StatStages,
+    ) -> Option<(StatStages, MoveStats, StatStages)> {
+        Some((stages, move_stats, opponent_stages))
     }
     /// Called when the dragon is being switched.
-    fn switching(&self) -> Option<bool> {
-        Some(true)
+    fn switching(&self) -> Option<()> {
+        Some(())
     }
 }
 
@@ -98,9 +68,11 @@ pub mod effects {
         }
     }
     impl LongTermEffectTrait for AttackStageModifier {
-        fn stat_calculation(&self, stages: &mut StatStages) -> Option<bool> {
-            stages.attack += self.0;
-            Some(true)
+        fn stat_calculation(&self, stages: StatStages) -> StatStages {
+            StatStages {
+                attack: stages.attack + self.0,
+                ..stages
+            }
         }
 
         fn get_name(&self) -> &str {
@@ -116,9 +88,11 @@ pub mod effects {
         }
     }
     impl LongTermEffectTrait for DefenseStageModifier {
-        fn stat_calculation(&self, stages: &mut StatStages) -> Option<bool> {
-            stages.defense += self.0;
-            Some(true)
+        fn stat_calculation(&self, stages: StatStages) -> StatStages {
+            StatStages {
+                defense: stages.defense + self.0,
+                ..stages
+            }
         }
         fn get_name(&self) -> &str {
             "defense_modifier"
@@ -129,10 +103,10 @@ pub mod effects {
     /// removes itself.
     pub struct OneshotEffect<T>(T)
     where
-        T: Fn(&mut BattleDragon);
+        T: Fn(BattleDragon) -> BattleDragon;
     impl<T> OneshotEffect<T>
     where
-        T: Fn(&mut BattleDragon),
+        T: Fn(BattleDragon) -> BattleDragon,
     {
         pub fn new(modifier: T) -> Self {
             Self(modifier)
@@ -141,15 +115,15 @@ pub mod effects {
 
     impl<T> LongTermEffectTrait for OneshotEffect<T>
     where
-        T: Fn(&mut BattleDragon),
+        T: Fn(BattleDragon) -> BattleDragon,
     {
         fn get_name(&self) -> &str {
             "oneshot"
         }
 
-        fn apply(&self, dragon: &mut BattleDragon) -> Option<()> {
-            (self.0)(dragon);
-            None
+        fn apply(&self, dragon: BattleDragon) -> (bool, BattleDragon) {
+            let dragon = self.0(dragon);
+            (false, dragon)
         }
     }
 }

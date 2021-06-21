@@ -4,39 +4,30 @@ pub mod effect;
 pub use effect::effects;
 pub mod data;
 pub mod moves;
+pub mod party;
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
-
     use crate::{
-        dragon::{BattleDragon, DragonData, Stats},
-        effects,
-        moves::MoveData,
+        battle::Battlefield,
+        dragon::{BattleDragon, Stats},
+        moves::SimpleDamagingMove,
+        party::{Party, PartyItem},
     };
 
     #[test]
     fn it_works() {
-        let mew = BattleDragon::new(DragonData::new("Mew", Stats::new()), vec![]);
-        let enemy_mew = BattleDragon::new(DragonData::new("Mew", Stats::new()), vec![]);
+        let mew = PartyItem::new(BattleDragon::new(Stats::new_exact(100, 100, 100)));
+        let mewtwo = PartyItem::new(BattleDragon::new(Stats::new_exact(110, 90, 106)));
+        let opposing_mew = PartyItem::new(BattleDragon::new(Stats::new_exact(100, 100, 100)));
+        let mew_party = Party::new_from_vec(vec![mew, mewtwo]);
+        let opposing_party = Party::new_from_vec(vec![opposing_mew]);
+        let mut battlefield = Battlefield::new(mew_party, opposing_party);
 
-        let (mew, enemy_mew) = BattleDragon::create_bounded_pair(mew, enemy_mew);
-        let mewtwo = BattleDragon::new_with_rc(
-            DragonData::new("Mewtwo", Stats::new_exact(110, 90, 106)),
-            vec![],
-        );
-        {
-            let mut mew_b = mew.borrow_mut();
-            let pound = MoveData::new_damaging(40, 100);
-            mew_b.attack(&pound).unwrap();
-            mew_b.switch(&mewtwo).unwrap();
-        }
-        println!("enemy_mew.hp = {}", enemy_mew.borrow().hp);
-        {
-            let mut mewtwo_b = mewtwo.borrow_mut();
-            let confusion = MoveData::new_damaging(50, 100);
-            mewtwo_b.attack(&confusion).unwrap();
-        }
-        println!("enemy_mew.hp = {}", enemy_mew.borrow().hp);
+        battlefield.attack(0, SimpleDamagingMove::new(40));
+        println!("enemy_mew.hp = {}", battlefield.party(1).active().dragon.hp);
+        battlefield.party_mut(0).switch(1);
+        battlefield.attack(0, SimpleDamagingMove::new(50));
+        println!("enemy_mew.hp = {}", battlefield.party(1).active().dragon.hp);
     }
 }

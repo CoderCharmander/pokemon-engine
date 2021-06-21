@@ -1,10 +1,16 @@
-use crate::dragon::BattleDragon;
+
+
+use std::cmp::min;
+
+use rand::Rng;
+
+use crate::{party::PartyItem};
 
 #[derive(Clone, Copy)]
 pub struct MoveStats {
     pub accuracy: u32,
     pub base_power: u32,
-    pub crit_calc: u8,
+    pub(crate) crit_calc: u8,
 }
 
 impl MoveStats {
@@ -23,36 +29,62 @@ pub enum MoveResult {
     Missed,
 }
 
-pub struct MoveData {
-    pub(crate) stats: MoveStats,
-    pub(crate) offender: Box<Move>,
+pub fn calculate_static_damage(user_attack: u32, opponent_defense: u32, base_power: u32) -> u32 {
+    22 * user_attack * base_power / opponent_defense / 50 + 2
 }
 
-impl MoveData {
-    pub fn new_damaging(base_power: u32, accuracy: u32) -> Self {
-        Self {
-            stats: MoveStats {
-                accuracy,
-                base_power,
-                crit_calc: 0,
-            },
-            offender: Box::new(|dragon, stats| {
-                match dragon.offend(*stats) {
-                    Some(_) => { MoveResult::Succeeded },
-                    None => MoveResult::Failed
-                }
-            }),
-        }
-    }
-
-    pub fn new_special(offender: Box<Move>) -> Self {
-        Self {
-            stats: MoveStats::new(0, 100),
-            offender
-        }
+pub fn calculate_random_damage(user_attack: u32, opponent_defense: u32, base_power: u32, crit: u8) -> u32 {
+    let base_damage = calculate_static_damage(user_attack, opponent_defense, base_power);
+    let crit_chance = (&[24., 8., 2., 1.])[min(3, crit) as usize];
+    if rand::thread_rng().gen_bool(1. / crit_chance) {
+        base_damage + base_damage / 2
+    } else {
+        base_damage
     }
 }
 
-/// The first BattleDragon instance is the user, the second is the
-/// opponent.
-pub type Move = dyn Fn(&mut BattleDragon, &MoveStats) -> MoveResult;
+pub trait MoveTrait {
+    fn attack_opponent(&self, opponent: &mut PartyItem, user: &PartyItem) -> MoveResult;
+    fn apply_to_user(&self, user: &mut PartyItem, opponent: &PartyItem) {}
+}
+
+pub struct SimpleDamagingMove {
+    base_power: u32,
+    crit_boost: u8,
+}
+
+impl SimpleDamagingMove {
+    pub fn new(base_power: u32) -> Self {
+        Self {
+            base_power, crit_boost: 0
+        }
+    }
+
+    pub fn new_crit(base_power: u32, crit_boost: u8) -> Self {
+        Self {
+            base_power, crit_boost
+        }
+    }
+}
+
+impl MoveTrait for SimpleDamagingMove {
+    fn attack_opponent(&self, opponent: &mut PartyItem, user: &PartyItem) -> MoveResult {
+        let move_stats = MoveStats {
+            accuracy: 100,
+            base_power: self.base_power,
+            crit_calc: self.crit_boost,
+        };
+        let stats = user.offend(move_stats, opponent.calc_stages(), |m, o| opponent.defend(m, o));
+        let (user_stages, move_stats, opponent_stages) = match stats {
+            None => return MoveResult::Failed,
+            Some(s) => s
+        };
+        let user_stats = user.dragon.stats().apply_stages(user_stages);
+        let opponent_stats = opponent.dragon.stats().apply_stages(opponent_stages);
+
+        let final_damage = calculate_random_damage(user_stats.attack, opponent_stats.defense, move_stats.base_power, move_stats.crit_calc);
+        opponent.damage(final_damage);
+        
+        MoveResult::Succeeded
+    }
+}
