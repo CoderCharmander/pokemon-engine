@@ -45,7 +45,7 @@ pub fn calculate_random_damage(user_attack: u32, opponent_defense: u32, base_pow
 
 pub trait MoveTrait {
     fn attack_opponent(&self, opponent: &mut PartyItem, user: &PartyItem) -> MoveResult;
-    fn apply_to_user(&self, user: &mut PartyItem, opponent: &PartyItem) {}
+    fn apply_to_user(&self, _user: &mut PartyItem, _opponent: &PartyItem) {}
 }
 
 pub struct SimpleDamagingMove {

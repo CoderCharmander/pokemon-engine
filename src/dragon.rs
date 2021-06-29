@@ -2,6 +2,7 @@ use std::cmp::max;
 use std::ops::Add;
 use std::ops::Mul;
 
+#[derive(Serialize, Deserialize)]
 pub struct DragonData {
     pub name: String,
     pub base_stats: Stats,

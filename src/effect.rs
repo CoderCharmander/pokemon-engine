@@ -8,7 +8,7 @@ use crate::{
 /// If a function returns None, the action is stopped. In
 /// other cases, the returned data is used in the action,
 /// possibly passing through other effects before.
-pub trait LongTermEffectTrait {
+pub trait LongTermEffectTrait: Send + Sync {
     /// Return a lowercase string corresponding to the type
     /// of the longterm effect.
     fn get_name(&self) -> &str;
@@ -101,22 +101,14 @@ pub mod effects {
 
     /// Calls a closure once it is attached to a BattleDragon, then
     /// removes itself.
-    pub struct OneshotEffect<T>(T)
-    where
-        T: Fn(BattleDragon) -> BattleDragon;
-    impl<T> OneshotEffect<T>
-    where
-        T: Fn(BattleDragon) -> BattleDragon,
-    {
+    pub struct OneshotEffect<T: Fn(BattleDragon) -> BattleDragon + Send + Sync>(T);
+    impl<T: Fn(BattleDragon) -> BattleDragon + Send + Sync> OneshotEffect<T> {
         pub fn new(modifier: T) -> Self {
             Self(modifier)
         }
     }
 
-    impl<T> LongTermEffectTrait for OneshotEffect<T>
-    where
-        T: Fn(BattleDragon) -> BattleDragon,
-    {
+    impl<T: Fn(BattleDragon) -> BattleDragon + Send + Sync> LongTermEffectTrait for OneshotEffect<T> {
         fn get_name(&self) -> &str {
             "oneshot"
         }
