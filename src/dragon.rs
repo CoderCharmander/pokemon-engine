@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::max;
 use std::ops::Add;
 use std::ops::Mul;
@@ -17,7 +18,7 @@ impl DragonData {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Serialize, Deserialize, Clone, Copy)]
 pub struct Stats {
     pub attack: u32,
     pub defense: u32,
