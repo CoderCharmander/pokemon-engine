@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     dragon::{BattleDragon, StatStages, Stats},
     effect::LongTermEffectTrait,
@@ -102,6 +104,50 @@ impl PartyItem {
 pub struct Party {
     pub(crate) items: Vec<PartyItem>,
     pub(crate) active: usize,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PartyId {
+    Party1,
+    Party2,
+}
+
+impl PartyId {
+    /// Returns the opposing ID to this party ID.
+    pub fn opposing(&self) -> Self {
+        match *self {
+            Self::Party1 => PartyId::Party2,
+            Self::Party2 => PartyId::Party1,
+        }
+    }
+
+    /// Gets the party ID relative to this.
+    pub fn relative(&self, relative: RelativePartyId) -> Self {
+        match relative {
+            RelativePartyId::User => *self,
+            RelativePartyId::Opposing => self.opposing(),
+        }
+    }
+}
+
+impl Display for PartyId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl From<PartyId> for u8 {
+    fn from(party_id: PartyId) -> Self {
+        match party_id {
+            PartyId::Party1 => 0,
+            PartyId::Party2 => 1,
+        }
+    }
+}
+
+pub enum RelativePartyId {
+    User,
+    Opposing,
 }
 
 impl Party {
