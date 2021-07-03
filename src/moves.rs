@@ -50,18 +50,18 @@ pub fn calculate_random_damage(
     }
 }
 
-pub trait MoveTrait {
+pub trait MoveTrait<T: Messenger> {
     fn attack_opponent(
         &self,
         opponent: &mut PartyItem,
         user: &PartyItem,
-        messenger: &dyn Messenger,
+        messenger: &T,
     ) -> MoveResult;
     fn apply_to_user(
         &self,
         _user: &mut PartyItem,
         _opponent: &PartyItem,
-        _messenger: &dyn Messenger,
+        _messenger: &T,
     ) -> Option<MoveEvent> {
         None
     }
@@ -92,12 +92,12 @@ impl SimpleDamagingMove {
     }
 }
 
-impl MoveTrait for SimpleDamagingMove {
+impl<T: Messenger> MoveTrait<T> for SimpleDamagingMove {
     fn attack_opponent(
         &self,
         opponent: &mut PartyItem,
         user: &PartyItem,
-        _messenger: &dyn Messenger,
+        _messenger: &T,
     ) -> MoveResult {
         let move_stats = MoveStats {
             accuracy: 100,
