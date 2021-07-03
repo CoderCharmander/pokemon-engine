@@ -8,7 +8,7 @@ use crate::{
 
 pub struct PartyItem {
     pub(crate) dragon: BattleDragon,
-    pub(crate) effects: Vec<Box<dyn LongTermEffectTrait>>,
+    pub(crate) effects: Vec<(u16, Box<dyn LongTermEffectTrait>)>,
 }
 
 impl PartyItem {
@@ -21,7 +21,7 @@ impl PartyItem {
     pub fn calc_stages(&self) -> StatStages {
         self.effects
             .iter()
-            .fold(StatStages::new(), |s, e| e.stat_calculation(s))
+            .fold(StatStages::new(), |s, (_, e)| e.stat_calculation(s))
     }
 
     pub fn calc_stats(&self) -> Stats {
@@ -40,7 +40,7 @@ impl PartyItem {
     ) -> Option<(StatStages, MoveStats, StatStages)> {
         self.effects.iter().fold(
             Some((StatStages::new(), move_stats, opponent_stages)),
-            |s, e| s.and_then(|(u, m, o)| e.defending(u, m, o)),
+            |s, (_, e)| s.and_then(|(u, m, o)| e.defending(u, m, o)),
         )
     }
 
@@ -62,7 +62,7 @@ impl PartyItem {
     {
         let (stages, move_stats, opponent_stages) = self.effects.iter().fold(
             Some((self.calc_stages(), move_stats, opponent_stages)),
-            |s, e| s.and_then(|(u, m, o)| e.offending(u, m, o)),
+            |s, (_, e)| s.and_then(|(u, m, o)| e.offending(u, m, o)),
         )?;
         let (powered_opponent_stages, move_stats, stages) = defender(move_stats, stages)?;
         Some((
@@ -75,7 +75,7 @@ impl PartyItem {
     pub fn may_switch(&self) -> bool {
         self.effects
             .iter()
-            .fold(Some(()), |s, e| s.and_then(|_| e.switching()))
+            .fold(Some(()), |s, (_, e)| s.and_then(|_| e.switching()))
             .is_some()
     }
 
@@ -83,7 +83,7 @@ impl PartyItem {
         let (attach, dragon) = effect.apply(self.dragon);
         self.dragon = dragon;
         if attach {
-            self.effects.push(effect);
+            self.effects.push((0, effect));
         }
     }
 
@@ -97,6 +97,31 @@ impl PartyItem {
         } else {
             self.dragon.hp = 0;
             true
+        }
+    }
+
+    /// Starts a new turn. All effects will be
+    /// notified, and possibly detached. Effect
+    /// duration counters are incremented by one.
+    pub fn turn(&mut self) {
+        let mut removed = Vec::new();
+        let mut attached = Vec::new();
+        for (idx, (duration, effect)) in self.effects.iter_mut().enumerate() {
+            let (keep, added_effects) = effect.turn(*duration);
+            if !keep {
+                removed.push(idx);
+            }
+            if let Some(mut effects) = added_effects {
+                attached.append(&mut effects);
+            }
+        }
+
+        for idx in removed.iter().rev() {
+            self.effects.remove(*idx);
+        }
+
+        for effect in attached {
+            self.add_effect(effect);
         }
     }
 }
