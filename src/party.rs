@@ -18,6 +18,11 @@ impl PartyItem {
             effects: vec![],
         }
     }
+
+    pub fn hp(&self) -> u32 {
+        self.dragon.hp
+    }
+
     pub fn calc_stages(&self) -> StatStages {
         self.effects
             .iter()
@@ -151,6 +156,14 @@ impl PartyId {
         match relative {
             RelativePartyId::User => *self,
             RelativePartyId::Opposing => self.opposing(),
+        }
+    }
+
+    pub fn from_u8(party_id: u8) -> Option<Self> {
+        match party_id {
+            0 => Some(PartyId::Party1),
+            1 => Some(PartyId::Party2),
+            _ => None,
         }
     }
 }

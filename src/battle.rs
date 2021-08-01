@@ -42,25 +42,14 @@ impl<T: Messenger> Battlefield<T> {
         }
     }
 
-    fn party_opposing_messenger_mut(
-        &mut self,
-        id: PartyId,
-    ) -> (&mut Party, &mut Party, &T) {
+    fn party_opposing_messenger_mut(&mut self, id: PartyId) -> (&mut Party, &mut Party, &T) {
         match id {
-            PartyId::Party1 => (
-                &mut self.parties.0,
-                &mut self.parties.1,
-                &self.messenger,
-            ),
-            PartyId::Party2 => (
-                &mut self.parties.1,
-                &mut self.parties.0,
-                &self.messenger,
-            ),
+            PartyId::Party1 => (&mut self.parties.0, &mut self.parties.1, &self.messenger),
+            PartyId::Party2 => (&mut self.parties.1, &mut self.parties.0, &self.messenger),
         }
     }
 
-    pub fn attack<M: MoveTrait<T>>(&mut self, party_id: PartyId, attack: M) {
+    pub fn attack(&mut self, party_id: PartyId, attack: &dyn MoveTrait<T>) {
         self.messenger.on_attack(&self, party_id, attack.get_name());
         let attack_result;
         let user_apply_result;
@@ -77,6 +66,11 @@ impl<T: Messenger> Battlefield<T> {
         if let Some(event) = user_apply_result {
             send_move_event_to_messenger(&self.messenger, event, party_id, &self);
         }
+    }
+
+    pub fn turn(&mut self) {
+        self.parties.0.active_mut().turn();
+        self.parties.1.active_mut().turn();
     }
 }
 

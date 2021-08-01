@@ -33,7 +33,7 @@ mod tests {
 
         battlefield.attack(
             PartyId::Party1,
-            SimpleDamagingMove::new("Pound".to_string(), 40),
+            &SimpleDamagingMove::new("Pound".to_string(), 40),
         );
         println!(
             "enemy_mew.hp = {}",
@@ -43,7 +43,7 @@ mod tests {
         battlefield.party_mut(PartyId::Party1).switch(1);
         battlefield.attack(
             PartyId::Party1,
-            SimpleDamagingMove::new("Confusion".to_string(), 50),
+            &SimpleDamagingMove::new("Confusion".to_string(), 50),
         );
         println!(
             "enemy_mew.hp = {}",

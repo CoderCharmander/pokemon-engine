@@ -68,6 +68,7 @@ pub trait MoveTrait<T: Messenger> {
     fn get_name(&self) -> &str;
 }
 
+#[derive(serde::Deserialize)]
 pub struct SimpleDamagingMove {
     base_power: u32,
     crit_boost: u8,
